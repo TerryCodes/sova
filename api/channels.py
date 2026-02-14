@@ -30,13 +30,14 @@ def channels(db:SQLite, id):
                    FROM messages msg
                    LEFT JOIN message_reads mr ON mr.channel_id=c.id AND mr.user_id=?
                    WHERE msg.channel_id=c.id
+                   AND msg.seq>m.message_seq
                    AND (mr.last_message_id IS NULL OR msg.seq > (
                        SELECT seq FROM messages WHERE id=mr.last_message_id
                    ))
                ), 0) as unread_count,
                mr.last_message_id AS last_message_read_id,
                (SELECT COUNT(*) FROM members WHERE channel_id=c.id) as member_count,
-               CASE WHEN last_msg.id IS NOT NULL AND last_msg.seq>=m.message_seq THEN
+               CASE WHEN last_msg.id IS NOT NULL AND last_msg.seq>m.message_seq THEN
                    json_object(
                        'content', last_msg.content,
                        'id', last_msg.id,
