@@ -305,9 +305,9 @@ def channels_management(db:SQLite, id, channel_id):
 
                     # Get all channel members and emit member_leave events
                     channel_members=db.execute_raw_sql("""
-                        SELECT u.id, u.username, u.display, u.pfp 
-                        FROM users u 
-                        JOIN members m ON u.id=m.user_id 
+                        SELECT u.id, u.username, u.display_name, u.pfp
+                        FROM users u
+                        JOIN members m ON u.id=m.user_id
                         WHERE m.channel_id=?
                     """, (channel_id,))
 
