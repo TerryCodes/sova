@@ -58,7 +58,7 @@ def channel_messages(db:SQLite, id, channel_id):
             "   'filename', f.filename, ",
             "   'size', f.size, ",
             "   'mimetype', f.mimetype, ",
-            "   'encrypted', am.encrypted, ",
+            "   'encrypted', am.encrypted=1, ",
             "   'iv', am.iv",
             ")) FROM attachment_message am ",
             "   JOIN files f ON am.file_id = f.id ",
@@ -81,7 +81,7 @@ def channel_messages(db:SQLite, id, channel_id):
             "   'filename', f.filename, ",
             "   'size', f.size, ",
             "   'mimetype', f.mimetype, ",
-            "   'encrypted', am.encrypted, ",
+            "   'encrypted', am.encrypted=1, ",
             "   'iv', am.iv",
             ")) FROM attachment_message am ",
             "   JOIN files f ON am.file_id = f.id ",
@@ -212,7 +212,7 @@ def sending_messages(db:SQLite, id, channel_id):
             existing_attachment=db.select_data("attachment_message", ["file_id"], {"file_id": file_id, "message_id": message_id})
             if not existing_attachment:
                 db.insert_data("attachment_message", {"file_id": file_id, "message_id": message_id, "encrypted": 1 if encrypted else 0, "iv": attachment_iv})
-            attachments.append({"id": file_id, "filename": file.filename, "size": file_info["size"], "mimetype": file_info["mimetype"], "encrypted": encrypted, "iv": attachment_iv})
+            attachments.append({"id": file_id, "filename": file.filename, "size": file_info["size"], "mimetype": file_info["mimetype"], "encrypted": bool(encrypted), "iv": attachment_iv})
 
     # Get user data for the emit
     user_data=db.execute_raw_sql("SELECT username, display_name AS display, pfp FROM users WHERE id=?", (id,))[0] if not (data["type"]==3 and not (has_permission(member_permissions, perm.send_messages, channel_permissions) or has_permission(member_permissions, perm.manage_members, channel_permissions) or has_permission(member_permissions, perm.manage_permissions, channel_permissions))) else None
@@ -291,7 +291,7 @@ def message_management(db:SQLite, id, channel_id, message_id):
         updated_message=db.execute_raw_sql("""
             SELECT m.id, m.content, m.key, m.iv, m.timestamp, m.edited_at, m.replied_to, m.signature, m.signed_timestamp, m.nonce,
             json_object('username', u.username, 'display', u.display_name, 'pfp', u.pfp) as user,
-            (SELECT json_group_array(json_object('id', am.file_id, 'filename', f.filename, 'size', f.size, 'mimetype', f.mimetype, 'encrypted', am.encrypted, 'iv', am.iv))
+            (SELECT json_group_array(json_object('id', am.file_id, 'filename', f.filename, 'size', f.size, 'mimetype', f.mimetype, 'encrypted', am.encrypted=1, 'iv', am.iv))
              FROM attachment_message am JOIN files f ON am.file_id = f.id WHERE am.message_id = m.id) as attachments
             FROM messages m JOIN users u ON m.user_id = u.id WHERE m.id=?
         """, (message_id,))[0]
