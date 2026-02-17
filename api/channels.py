@@ -59,7 +59,9 @@ def channels(db:SQLite, id):
                                'id', am.file_id,
                                'filename', f.filename,
                                'size', f.size,
-                               'mimetype', f.mimetype
+                               'mimetype', f.mimetype,
+                               'encrypted', am.encrypted,
+                               'iv', am.iv
                            ))
                            FROM attachment_message am
                            JOIN files f ON am.file_id = f.id

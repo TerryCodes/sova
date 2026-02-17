@@ -57,7 +57,9 @@ def channel_messages(db:SQLite, id, channel_id):
             "   'id', am.file_id, ",
             "   'filename', f.filename, ",
             "   'size', f.size, ",
-            "   'mimetype', f.mimetype",
+            "   'mimetype', f.mimetype, ",
+            "   'encrypted', am.encrypted, ",
+            "   'iv', am.iv",
             ")) FROM attachment_message am ",
             "   JOIN files f ON am.file_id = f.id ",
             "   WHERE am.message_id = m.id) AS attachments ",
@@ -78,7 +80,9 @@ def channel_messages(db:SQLite, id, channel_id):
             "   'id', am.file_id, ",
             "   'filename', f.filename, ",
             "   'size', f.size, ",
-            "   'mimetype', f.mimetype",
+            "   'mimetype', f.mimetype, ",
+            "   'encrypted', am.encrypted, ",
+            "   'iv', am.iv",
             ")) FROM attachment_message am ",
             "   JOIN files f ON am.file_id = f.id ",
             "   WHERE am.message_id = m.id) AS attachments ",
@@ -176,9 +180,20 @@ def sending_messages(db:SQLite, id, channel_id):
     db.insert_data("messages", {"id": message_id, "channel_id": channel_id, "user_id": id, "content": msg, "key": key, "iv": iv, "timestamp": sent_at, "replied_to": replied_to, "signature": signature, "signed_timestamp": signed_timestamp, "nonce": nonce})
     if db.exists("message_reads", {"user_id": id, "channel_id": channel_id}): db.update_data("message_reads", {"last_message_id": message_id, "read_at": sent_at}, {"user_id": id, "channel_id": channel_id})
     else: db.insert_data("message_reads", {"user_id": id, "channel_id": channel_id, "last_message_id": message_id, "read_at": sent_at})
+    attachments_meta_raw=request.form.get("attachments_meta")
+    attachments_meta=[]
+    if attachments_meta_raw:
+        try: attachments_meta=json.loads(attachments_meta_raw)
+        except: return make_json_error(400, "Invalid attachments_meta format")
+        if not isinstance(attachments_meta, list): return make_json_error(400, "attachments_meta must be an array")
     attachments=[]
-    for file in files:
+    for idx, file in enumerate(files):
         if file.filename and get_file_size_chunked(file, config["max_file_size"]["attachments"])<=config["max_file_size"]["attachments"]:
+            meta=attachments_meta[idx] if idx<len(attachments_meta) else {}
+            encrypted=meta.get("encrypted", False)
+            attachment_iv=meta.get("iv")
+            if encrypted and not attachment_iv: return make_json_error(400, "iv required when encrypted=true")
+            if encrypted and len(attachment_iv)!=16: return make_json_error(400, "Invalid iv length for attachment")
             temp_path=os.path.join(config["data_dir"]["attachments"], f"temp_{generate()}")
             file.save(temp_path)
             file_hash=db.calculate_file_hash(temp_path)
@@ -196,8 +211,8 @@ def sending_messages(db:SQLite, id, channel_id):
                 file_info={"id": file_id, "filename": file.filename, "size": file_size, "mimetype": file.content_type}
             existing_attachment=db.select_data("attachment_message", ["file_id"], {"file_id": file_id, "message_id": message_id})
             if not existing_attachment:
-                db.insert_data("attachment_message", {"file_id": file_id, "message_id": message_id})
-            attachments.append({"id": file_id, "filename": file.filename, "size": file_info["size"], "mimetype": file_info["mimetype"]})
+                db.insert_data("attachment_message", {"file_id": file_id, "message_id": message_id, "encrypted": 1 if encrypted else 0, "iv": attachment_iv})
+            attachments.append({"id": file_id, "filename": file.filename, "size": file_info["size"], "mimetype": file_info["mimetype"], "encrypted": encrypted, "iv": attachment_iv})
 
     # Get user data for the emit
     user_data=db.execute_raw_sql("SELECT username, display_name AS display, pfp FROM users WHERE id=?", (id,))[0] if not (data["type"]==3 and not (has_permission(member_permissions, perm.send_messages, channel_permissions) or has_permission(member_permissions, perm.manage_members, channel_permissions) or has_permission(member_permissions, perm.manage_permissions, channel_permissions))) else None
@@ -276,7 +291,7 @@ def message_management(db:SQLite, id, channel_id, message_id):
         updated_message=db.execute_raw_sql("""
             SELECT m.id, m.content, m.key, m.iv, m.timestamp, m.edited_at, m.replied_to, m.signature, m.signed_timestamp, m.nonce,
             json_object('username', u.username, 'display', u.display_name, 'pfp', u.pfp) as user,
-            (SELECT json_group_array(json_object('id', am.file_id, 'filename', f.filename, 'size', f.size, 'mimetype', f.mimetype))
+            (SELECT json_group_array(json_object('id', am.file_id, 'filename', f.filename, 'size', f.size, 'mimetype', f.mimetype, 'encrypted', am.encrypted, 'iv', am.iv))
              FROM attachment_message am JOIN files f ON am.file_id = f.id WHERE am.message_id = m.id) as attachments
             FROM messages m JOIN users u ON m.user_id = u.id WHERE m.id=?
         """, (message_id,))[0]
