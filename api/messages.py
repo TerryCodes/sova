@@ -180,12 +180,11 @@ def sending_messages(db:SQLite, id, channel_id):
     db.insert_data("messages", {"id": message_id, "channel_id": channel_id, "user_id": id, "content": msg, "key": key, "iv": iv, "timestamp": sent_at, "replied_to": replied_to, "signature": signature, "signed_timestamp": signed_timestamp, "nonce": nonce})
     if db.exists("message_reads", {"user_id": id, "channel_id": channel_id}): db.update_data("message_reads", {"last_message_id": message_id, "read_at": sent_at}, {"user_id": id, "channel_id": channel_id})
     else: db.insert_data("message_reads", {"user_id": id, "channel_id": channel_id, "last_message_id": message_id, "read_at": sent_at})
-    attachments_meta_raw=request.form.get("attachments_meta")
+    attachments_meta_raw=request.form.getlist("attachments_meta")
     attachments_meta=[]
-    if attachments_meta_raw:
-        try: attachments_meta=json.loads(attachments_meta_raw)
+    for item in attachments_meta_raw:
+        try: attachments_meta.append(json.loads(item))
         except: return make_json_error(400, "Invalid attachments_meta format")
-        if not isinstance(attachments_meta, list): return make_json_error(400, "attachments_meta must be an array")
     attachments=[]
     for idx, file in enumerate(files):
         if file.filename and get_file_size_chunked(file, config["max_file_size"]["attachments"])<=config["max_file_size"]["attachments"]:
