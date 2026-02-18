@@ -60,7 +60,7 @@ def channels(db:SQLite, id):
                                'filename', f.filename,
                                'size', f.size,
                                'mimetype', f.mimetype,
-                               'encrypted', am.encrypted=1,
+                               'encrypted', am.encrypted,
                                'iv', am.iv
                            ))
                            FROM attachment_message am

@@ -58,7 +58,7 @@ def channel_messages(db:SQLite, id, channel_id):
             "   'filename', f.filename, ",
             "   'size', f.size, ",
             "   'mimetype', f.mimetype, ",
-            "   'encrypted', am.encrypted=1, ",
+            "   'encrypted', am.encrypted, ",
             "   'iv', am.iv",
             ")) FROM attachment_message am ",
             "   JOIN files f ON am.file_id = f.id ",
@@ -81,7 +81,7 @@ def channel_messages(db:SQLite, id, channel_id):
             "   'filename', f.filename, ",
             "   'size', f.size, ",
             "   'mimetype', f.mimetype, ",
-            "   'encrypted', am.encrypted=1, ",
+            "   'encrypted', am.encrypted, ",
             "   'iv', am.iv",
             ")) FROM attachment_message am ",
             "   JOIN files f ON am.file_id = f.id ",
@@ -295,7 +295,7 @@ def message_management(db:SQLite, id, channel_id, message_id):
         updated_message=db.execute_raw_sql("""
             SELECT m.id, m.content, m.key, m.iv, m.timestamp, m.edited_at, m.replied_to, m.signature, m.signed_timestamp, m.nonce,
             json_object('username', u.username, 'display', u.display_name, 'pfp', u.pfp) as user,
-            (SELECT json_group_array(json_object('id', am.file_id, 'filename', f.filename, 'size', f.size, 'mimetype', f.mimetype, 'encrypted', am.encrypted=1, 'iv', am.iv))
+            (SELECT json_group_array(json_object('id', am.file_id, 'filename', f.filename, 'size', f.size, 'mimetype', f.mimetype, 'encrypted', am.encrypted, 'iv', am.iv))
              FROM attachment_message am JOIN files f ON am.file_id = f.id WHERE am.message_id = m.id) as attachments
             FROM messages m JOIN users u ON m.user_id = u.id WHERE m.id=?
         """, (message_id,))[0]
