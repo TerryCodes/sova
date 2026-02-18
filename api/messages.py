@@ -175,24 +175,29 @@ def sending_messages(db:SQLite, id, channel_id):
         if len(request.form["iv"])!=16: return make_json_error(400, "Invalid iv parameter, error: length")
         iv=request.form["iv"]
     nonce=request.form.get("nonce")
-    message_id=generate()
-    sent_at=timestamp(True)
-    db.insert_data("messages", {"id": message_id, "channel_id": channel_id, "user_id": id, "content": msg, "key": key, "iv": iv, "timestamp": sent_at, "replied_to": replied_to, "signature": signature, "signed_timestamp": signed_timestamp, "nonce": nonce})
-    if db.exists("message_reads", {"user_id": id, "channel_id": channel_id}): db.update_data("message_reads", {"last_message_id": message_id, "read_at": sent_at}, {"user_id": id, "channel_id": channel_id})
-    else: db.insert_data("message_reads", {"user_id": id, "channel_id": channel_id, "last_message_id": message_id, "read_at": sent_at})
     attachments_meta_raw=request.form.getlist("attachments_meta")
     attachments_meta=[]
     for item in attachments_meta_raw:
         try: attachments_meta.append(json.loads(item))
         except: return make_json_error(400, "Invalid attachments_meta format")
+    for idx, file in enumerate(files):
+        if file.filename:
+            meta=attachments_meta[idx] if idx<len(attachments_meta) else {}
+            encrypted=meta.get("encrypted", False)
+            attachment_iv=meta.get("iv")
+            if encrypted and not attachment_iv: return make_json_error(400, "iv required when encrypted=true")
+            if encrypted and len(attachment_iv)!=16: return make_json_error(400, "Invalid iv length for attachment")
+    message_id=generate()
+    sent_at=timestamp(True)
+    db.insert_data("messages", {"id": message_id, "channel_id": channel_id, "user_id": id, "content": msg, "key": key, "iv": iv, "timestamp": sent_at, "replied_to": replied_to, "signature": signature, "signed_timestamp": signed_timestamp, "nonce": nonce})
+    if db.exists("message_reads", {"user_id": id, "channel_id": channel_id}): db.update_data("message_reads", {"last_message_id": message_id, "read_at": sent_at}, {"user_id": id, "channel_id": channel_id})
+    else: db.insert_data("message_reads", {"user_id": id, "channel_id": channel_id, "last_message_id": message_id, "read_at": sent_at})
     attachments=[]
     for idx, file in enumerate(files):
         if file.filename and get_file_size_chunked(file, config["max_file_size"]["attachments"])<=config["max_file_size"]["attachments"]:
             meta=attachments_meta[idx] if idx<len(attachments_meta) else {}
             encrypted=meta.get("encrypted", False)
             attachment_iv=meta.get("iv")
-            if encrypted and not attachment_iv: return make_json_error(400, "iv required when encrypted=true")
-            if encrypted and len(attachment_iv)!=16: return make_json_error(400, "Invalid iv length for attachment")
             temp_path=os.path.join(config["data_dir"]["attachments"], f"temp_{generate()}")
             file.save(temp_path)
             file_hash=db.calculate_file_hash(temp_path)
