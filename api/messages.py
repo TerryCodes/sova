@@ -119,7 +119,7 @@ def channel_messages(db:SQLite, id, channel_id):
     messages=db.execute_raw_sql(" ".join(sql_parts), params)
     for msg in messages:
         msg["user"]=json.loads(msg["user"]) if msg["user"] else None
-        msg["attachments"]=json.loads(msg["attachments"])
+        msg["attachments"]=[{**a, "encrypted": bool(a["encrypted"])} for a in json.loads(msg["attachments"])]
     return jsonify(messages)
 
 @messages_bp.route("/channel/<string:channel_id>/messages", methods=["POST"])
@@ -300,7 +300,7 @@ def message_management(db:SQLite, id, channel_id, message_id):
             FROM messages m JOIN users u ON m.user_id = u.id WHERE m.id=?
         """, (message_id,))[0]
         updated_message["user"]=json.loads(updated_message["user"])
-        updated_message["attachments"]=json.loads(updated_message["attachments"]) if updated_message["attachments"] else []
+        updated_message["attachments"]=[{**a, "encrypted": bool(a["encrypted"])} for a in json.loads(updated_message["attachments"])] if updated_message["attachments"] else []
         message_edited(channel_id, updated_message, id, db)
 
         return jsonify({"success": True})

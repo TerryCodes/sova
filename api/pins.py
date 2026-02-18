@@ -78,7 +78,7 @@ def get_pinned_messages(db:SQLite, id, channel_id):
     pinned_messages=db.execute_raw_sql(" ".join(sql_parts), params)
     for msg in pinned_messages:
         msg["user"]=json.loads(msg["user"]) if msg["user"] else None
-        msg["attachments"]=json.loads(msg["attachments"])
+        msg["attachments"]=[{**a, "encrypted": bool(a["encrypted"])} for a in json.loads(msg["attachments"])]
     return jsonify(pinned_messages)
 
 @pins_bp.route("/channel/<string:channel_id>/message/<string:message_id>/pin", methods=["POST"])
