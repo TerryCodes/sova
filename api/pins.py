@@ -112,5 +112,5 @@ def unpin_message(db:SQLite, id, channel_id, message_id):
     channel_data=channel_data[0]
     if channel_data["type"]!=1 and not has_permission(user_permissions, perm.manage_messages, channel_data["permissions"]): return make_json_error(403, "You don't have manage messages permission")
     if not db.exists("messages", {"id": message_id, "channel_id": channel_id}): return make_json_error(404, "Message not found")
-    if db.delete_data("message_pins", {"id": message_id})>0: return make_json_error(409, "Message is not pinned")
+    if db.delete_data("message_pins", {"id": message_id})==0: return make_json_error(409, "Message is not pinned")
     return jsonify({"success": True})
