@@ -53,8 +53,7 @@ def handle_pfp(error_as_text: bool=False):
     if not request.files or "pfp" not in request.files: return None
     pfp_file=request.files["pfp"]
     if not pfp_file.filename: return None
-    if pfp_file.content_length and pfp_file.content_length>config["max_file_size"]["pfps"]: return make_json_error(413, "Profile picture exceed file size limit") if not error_as_text else "Profile picture exceed file size limit", True
-    if get_file_size_chunked(pfp_file, config["max_file_size"]["pfps"])>config["max_file_size"]["pfps"]: return make_json_error(413, "Profile picture exceed file size limit") if not error_as_text else "Profile picture exceed file size limit", True
+    if pfp_file.content_length and pfp_file.content_length>config["max_file_size"]["pfps"] and get_file_size_chunked(pfp_file, config["max_file_size"]["pfps"])>config["max_file_size"]["pfps"]: return make_json_error(413, "Profile picture exceed file size limit") if not error_as_text else "Profile picture exceed file size limit", True
     if pfp_file.mimetype!="image/webp": return make_json_error(400, "Profile picture must be WebP format") if not error_as_text else "Profile picture must be WebP format", True
     try:
         image=Image.open(pfp_file.stream)

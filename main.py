@@ -96,7 +96,7 @@ if frontend:
         if "." not in path: path+=".html"
         safe_path=safe_join(config["frontend"]["frontend_directory"], path)
         if not safe_path: abort(404)
-        safe_path=os.path.relpath(safe_path)
+        safe_path=os.path.relpath(safe_path).lower()
         for exclude in config["frontend"]["excluded_frontend_root_paths"]:
             if safe_path.startswith(os.path.join(config["frontend"]["frontend_directory"], exclude)): abort(404)
         return send_from_directory(config["frontend"]["frontend_directory"], path)
