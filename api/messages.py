@@ -129,7 +129,8 @@ def channel_messages(db:SQLite, id, channel_id):
 def sending_messages(db:SQLite, id, channel_id):
     files=request.files.getlist("files")
     msg=request.form["content"].strip()
-    if (not files and not msg): return make_json_error(400, "content or files required")
+    has_files=any(file.filename for file in files)
+    if (not has_files and not msg): return make_json_error(400, "content or files required")
     replied_to=request.form.get("replied_to")
     try: signed_timestamp=int(request.form["timestamp"])
     except ValueError: return make_json_error(400, "Invalid timestamp format")
@@ -217,7 +218,9 @@ def sending_messages(db:SQLite, id, channel_id):
             if not existing_attachment:
                 db.insert_data("attachment_message", {"file_id": file_id, "message_id": message_id, "encrypted": 1 if encrypted else 0, "iv": attachment_iv})
             attachments.append({"id": file_id, "filename": file.filename, "size": file_info["size"], "mimetype": file_info["mimetype"], "encrypted": bool(encrypted), "iv": attachment_iv})
-
+    if not msg and has_files and not attachments:
+        db.delete_data("messages", {"id": message_id})
+        return make_json_error(400, "Files do not meet size requirements")
     # Get user data for the emit
     user_data=db.execute_raw_sql("SELECT username, display_name AS display, pfp FROM users WHERE id=?", (id,))[0] if not (data["type"]==3 and not (has_permission(member_permissions, perm.send_messages, channel_permissions) or has_permission(member_permissions, perm.manage_members, channel_permissions) or has_permission(member_permissions, perm.manage_permissions, channel_permissions))) else None
     hide_signature=(data["type"]==3 and not (has_permission(member_permissions, perm.send_messages, channel_permissions) or has_permission(member_permissions, perm.manage_members, channel_permissions) or has_permission(member_permissions, perm.manage_permissions, channel_permissions)))
