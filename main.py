@@ -88,6 +88,8 @@ def error_handler(error):
 if frontend:
     colored_log(BLUE, "INFO", "Frontend directory present, serving it")
 
+    excluded=[i.lower() for i in config["frontend"]["excluded_frontend_root_paths"]]
+
     @app_route("/")
     def index(): return send_from_directory(config["frontend"]["frontend_directory"], "index.html")
 
@@ -97,7 +99,7 @@ if frontend:
         safe_path=safe_join(config["frontend"]["frontend_directory"], path)
         if not safe_path: abort(404)
         safe_path=os.path.relpath(safe_path).lower()
-        for exclude in config["frontend"]["excluded_frontend_root_paths"]:
+        for exclude in excluded:
             if safe_path.startswith(os.path.join(config["frontend"]["frontend_directory"], exclude)): abort(404)
         return send_from_directory(config["frontend"]["frontend_directory"], path)
 elif not frontend_hosted:
