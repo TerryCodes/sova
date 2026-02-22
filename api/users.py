@@ -44,29 +44,33 @@ def logout(db:SQLite, session_id):
 @logged_in()
 @sliding_window_rate_limiter(limit=20, window=60, user_limit=10)
 def edit_me(db:SQLite, id):
+    db.close()
     update_data={}
     errors=[]
     if "display" in request.form:
         if len(request.form["display"])>1 and len(request.form["display"])<25: update_data["display_name"]=request.form["display"] if request.form["display"] else None
         else: errors.append("Invalid display parameter, error: length")
-    if request.files and "pfp" in request.files:
-        pfp_result=handle_pfp(error_as_text=True)
-        if not isinstance(pfp_result, tuple):
-            if pfp_result:
-                old_pfp_data=db.execute_raw_sql("SELECT pfp FROM users WHERE id=?", (id,))
-                old_pfp_id=old_pfp_data[0]["pfp"] if old_pfp_data and old_pfp_data[0]["pfp"] else None
-                if old_pfp_id!=pfp_result:
-                    update_data["pfp"]=pfp_result
-                    if old_pfp_id: db.cleanup_unused_files()
-                else: errors.append("Profile picture is the same")
-        else: errors.append(pfp_result[0])
-    if not update_data: return jsonify({"error": "No valid parameters to update", "errors": errors, "success": False}), 400
-    db.update_data("users", update_data, {"id": id})
-
-    # Get updated user data and emit member info changed event
-    updated_user=db.select_data("users", ["id", "username", "display_name AS display", "pfp"], {"id": id})[0]
+    with SQLite() as db:
+        if request.files and "pfp" in request.files:
+            pfp_result=handle_pfp(error_as_text=True, db=db)
+            if not isinstance(pfp_result, tuple):
+                if pfp_result:
+                    old_pfp_data=db.execute_raw_sql("SELECT pfp FROM users WHERE id=?", (id,))
+                    old_pfp_id=old_pfp_data[0]["pfp"] if old_pfp_data and old_pfp_data[0]["pfp"] else None
+                    if old_pfp_id!=pfp_result:
+                        update_data["pfp"]=pfp_result
+                        if old_pfp_id: old_pfp_id_for_cleanup=old_pfp_id
+                        else: old_pfp_id_for_cleanup=None
+                    else: errors.append("Profile picture is the same")
+            else: errors.append(pfp_result[0])
+        if not update_data: return jsonify({"error": "No valid parameters to update", "errors": errors, "success": False}), 400
+        db.update_data("users", update_data, {"id": id})
+        updated_user=db.select_data("users", ["id", "username", "display_name AS display", "pfp"], {"id": id})[0]
+    if "old_pfp_id_for_cleanup" in locals() and old_pfp_id_for_cleanup:
+        db_cleanup=SQLite()
+        try: db_cleanup.cleanup_unused_files()
+        finally: db_cleanup.close()
     member_info_changed(id, updated_user, db)
-
     return jsonify({"updated_user": updated_user, "errors": errors, "success": True})
 
 @users_bp.route("/me", methods=["DELETE"])

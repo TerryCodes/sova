@@ -49,7 +49,7 @@ def get_file_size_chunked(file, max_size, chunk_size=8192):
     file.stream.seek(0)
     return total_size
 
-def handle_pfp(error_as_text: bool=False):
+def handle_pfp(error_as_text: bool=False, db: SQLite=None):
     if not request.files or "pfp" not in request.files: return None
     pfp_file=request.files["pfp"]
     if not pfp_file.filename: return None
@@ -67,7 +67,11 @@ def handle_pfp(error_as_text: bool=False):
         with open(temp_filepath, "wb") as f: f.write(pfp_file.stream.read())
 
         # Calculate hash and check for duplicates
-        db=SQLite()
+        if db is None:
+            db=SQLite()
+            close_db=True
+        else:
+            close_db=False
         try:
             file_hash=db.calculate_file_hash(temp_filepath)
             file_size=os.path.getsize(temp_filepath)
@@ -86,7 +90,8 @@ def handle_pfp(error_as_text: bool=False):
                 db.insert_data("files", {"id": file_id, "hash": file_hash, "size": file_size, "file_type": "pfp", "mimetype": "image/webp"})
                 return file_id
         finally:
-            db.close()
+            if close_db:
+                db.close()
     except Exception: return make_json_error(400, "Invalid image file") if not error_as_text else "Invalid image file", True
 
 def pass_db(f):
