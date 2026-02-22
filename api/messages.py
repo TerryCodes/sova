@@ -195,7 +195,7 @@ def sending_messages(db:SQLite, id, channel_id):
     else: db.insert_data("message_reads", {"user_id": id, "channel_id": channel_id, "last_message_id": message_id, "read_at": sent_at})
     attachments=[]
     for idx, file in enumerate(files):
-        if file.filename and get_file_size_chunked(file, config["max_file_size"]["attachments"])<=config["max_file_size"]["attachments"]:
+        if file.content_length and file.content_length <= config["max_file_size"]["attachments"] and file.filename and get_file_size_chunked(file, config["max_file_size"]["attachments"])<=config["max_file_size"]["attachments"]:
             meta=attachments_meta[idx] if idx<len(attachments_meta) else {}
             encrypted=meta.get("encrypted", False)
             attachment_iv=meta.get("iv")
