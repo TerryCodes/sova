@@ -100,7 +100,7 @@ if frontend:
         if not safe_path: abort(404)
         safe_path=os.path.relpath(safe_path).lower()
         for exclude in excluded:
-            if safe_path.startswith(os.path.join(config["frontend"]["frontend_directory"], exclude)): abort(404)
+            if safe_path.startswith(exclude+os.sep) or safe_path==exclude: abort(404)
         return send_from_directory(config["frontend"]["frontend_directory"], path)
 elif not frontend_hosted:
     colored_log(BLUE, "INFO", "Frontend directory isn't hosted")
